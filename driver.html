@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Driver GPS Uploader</title>
+  <link rel="stylesheet" href="css/output.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    }
+  </style>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+</head>
+
+<body class="bg-gray-100 min-h-screen flex flex-col">
+  <div class="flex-grow flex flex-col p-4 md:p-8">
+    <header class="bg-white rounded-xl shadow-md p-4 md:p-6 mb-6">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <img src="images/vt.jpg" alt="Vel Tech Logo" class="h-12 w-auto rounded-lg shadow-sm">
+          <div>
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Vel Tech Driver Console</h1>
+            <p class="text-sm text-gray-500">Secure portal for updating live bus locations.</p>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex-grow">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <section class="bg-white rounded-xl shadow-md p-6 lg:col-span-2 space-y-6">
+          <header>
+            <h2 class="text-xl font-semibold text-gray-800">Broadcast Live Location</h2>
+            <p class="text-sm text-gray-500 mt-1">Enter your bus number and start sharing GPS updates with the transport
+              control room.</p>
+          </header>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="bus-no" class="block text-sm font-medium text-gray-700">Bus Number</label>
+              <input id="bus-no" type="text" placeholder="e.g., VT-01"
+                class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label for="assigned-route" class="block text-sm font-medium text-gray-700">Assigned Route</label>
+              <select id="assigned-route"
+                class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">Select your assigned route</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="interval" class="block text-sm font-medium text-gray-700">Update Interval</label>
+              <select id="interval"
+                class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="5000">Every 5 seconds</option>
+                <option value="10000" selected>Every 10 seconds</option>
+                <option value="15000">Every 15 seconds</option>
+                <option value="30000">Every 30 seconds</option>
+              </select>
+              <div class="mt-2 text-xs text-gray-500" id="time-status">
+                🕐 Location sharing allowed: 5:00 AM - 7:00 PM IST
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="rounded-lg border border-dashed border-gray-300 p-4 bg-gray-50">
+                <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">GPS Accuracy</h3>
+                <p class="mt-2 text-sm text-gray-600">High accuracy mode is enabled. Please allow location access when
+                  prompted.</p>
+              </div>
+              <div class="rounded-lg border border-dashed border-gray-300 p-4 bg-gray-50">
+                <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Battery Saver Tip</h3>
+                <p class="mt-2 text-sm text-gray-600">Keep the app in the foreground and ensure your device is charging
+                  when possible.</p>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+              <button id="start"
+                class="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg shadow-sm transition-colors">Start
+                Tracking</button>
+              <button id="stop"
+                class="px-5 py-2.5 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg shadow-sm transition-colors"
+                disabled>Stop &amp; Clear</button>
+              <button id="sos-btn"
+                class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-lg transition-all transform hover:scale-105 animate-pulse">🚨
+                SOS PANIC</button>
+              <span class="text-xs text-gray-500">Tracking stops automatically if this tab is closed.</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="space-y-2 text-sm text-gray-600">
+                <p id="status" class="font-medium text-gray-800">Idle</p>
+                <p id="last" class="text-gray-500"></p>
+                <p id="error" class="text-sm text-red-600 hidden"></p>
+              </div>
+              <div class="rounded-lg bg-blue-50 border border-blue-200 p-4 text-sm text-blue-900">
+                <h3 class="font-semibold">Quick checklist before you start</h3>
+                <ul class="mt-2 space-y-1 list-disc list-inside">
+                  <li>Confirm the bus number matches your assigned vehicle.</li>
+                  <li>Ensure mobile data and GPS are turned on.</li>
+                  <li>Inform dispatch if you experience connectivity issues.</li>
+                </ul>
+              </div>
+            </div>
+        </section>
+
+        <aside class="space-y-6">
+          <section class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800">Controls Overview</h3>
+            <p class="text-sm text-gray-600 mt-2">Use <strong>Start Tracking</strong> when beginning your route. Use
+              <strong>Stop &amp; Clear</strong> when parking at the depot or if you need to pause sharing.
+            </p>
+            <div class="mt-4 space-y-3 text-sm text-gray-600">
+              <div class="flex items-start gap-3">
+                <span
+                  class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-green-100 text-green-700 font-semibold">1</span>
+                <p>Enter the correct bus number — dispatch verifies location updates against this identifier.</p>
+              </div>
+              <div class="flex items-start gap-3">
+                <span
+                  class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 font-semibold">2</span>
+                <p>Keep this page open. Turning off the screen or switching apps may pause GPS tracking depending on
+                  your device.</p>
+              </div>
+              <div class="flex items-start gap-3">
+                <span
+                  class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-700 font-semibold">3</span>
+                <p>Report any hardware issues immediately to the transport control room.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800">Need Help?</h3>
+            <p class="text-sm text-gray-600 mt-2">Transport Control Room</p>
+            <ul class="mt-3 space-y-2 text-sm text-gray-600">
+              <li><strong>Phone:</strong> 98765 43210</li>
+              <li><strong>Email:</strong> transport@veltech.edu</li>
+              <li><strong>Hours:</strong> 5:30 AM – 9:30 PM</li>
+            </ul>
+            <p class="text-xs text-gray-400 mt-4">For emergencies use the hotline listed in the driver handbook.</p>
+          </section>
+        </aside>
+      </div>
+    </main>
+
+    <footer class="mt-8 bg-gray-800 text-white text-center p-4 rounded-xl shadow-md">
+      <p class="text-sm">&copy; 2024 Vel Tech Bus Management. Driver tools are monitored for security.</p>
+    </footer>
+  </div>
+
+  <script>
+    const supa = window.supabaseClient || window.supabase;
+    const busNoEl = document.getElementById('bus-no');
+    const assignedRouteEl = document.getElementById('assigned-route');
+    const startBtn = document.getElementById('start');
+    const stopBtn = document.getElementById('stop');
+    const sosBtn = document.getElementById('sos-btn');
+    const intervalEl = document.getElementById('interval');
+    const statusEl = document.getElementById('status');
+    const lastEl = document.getElementById('last');
+    const errEl = document.getElementById('error');
+
+    let watchId = null;
+    let timerId = null;
+    let latest = null;
+    let isTracking = false;
+    let pendingUpsert = null;
+    let assignedRoutes = [];
+    let currentAssignmentId = null; // Track current active assignment ID
+    let selectedRouteId = null; // Track selected route ID
+
+    // Load available routes (excluding those currently being tracked by other drivers)
+    async function loadAvailableRoutes() {
+      if (!supa) return;
+
+      try {
+        // Get all routes
+        const { data: allRoutes, error: routesError } = await supa
+          .from('bus_routes')
+          .select('id, route_number, route_name')
+          .order('route_number');
+
+        if (routesError) {
+          console.error('Error loading routes:', routesError);
+          return;
+        }
+
+        // Get currently active assignments (routes being tracked by other drivers)
+        const { data: activeAssignments, error: assignError } = await supa
+          .from('active_route_assignments')
+          .select('route_id, route_number, driver_id')
+          .eq('status', 'active');
+
+        if (assignError) {
+          console.error('Error loading active assignments:', assignError);
+        }
+
+        // Get current user ID (optional - may be null if not authenticated)
+        const { data: { user } } = await supa.auth.getUser();
+        const currentUserId = user?.id || null;
+
+        // Create a set of occupied route IDs (excluding current user's assignment)
+        const occupiedRouteIds = new Set(
+          (activeAssignments || [])
+            .filter(a => a.driver_id !== currentUserId)
+            .map(a => a.route_id)
+        );
+
+        // Filter available routes
+        assignedRoutes = (allRoutes || []).map(route => ({
+          ...route,
+          isOccupied: occupiedRouteIds.has(route.id)
+        }));
+
+        populateRouteDropdown();
+      } catch (e) {
+        console.error('Failed to load available routes:', e);
+      }
+    }
+
+    function populateRouteDropdown() {
+      if (!assignedRouteEl) return;
+
+      assignedRouteEl.innerHTML = '<option value="">Select your assigned route</option>';
+      assignedRoutes.forEach(route => {
+        const option = document.createElement('option');
+        option.value = route.route_name;
+        option.dataset.routeId = route.id;
+
+        // Show route number and name, mark if occupied
+        if (route.isOccupied) {
+          option.textContent = `${route.route_number} - ${route.route_name} (In Use)`;
+          option.disabled = true;
+          option.style.color = '#999';
+        } else {
+          option.textContent = `${route.route_number} - ${route.route_name}`;
+        }
+
+        assignedRouteEl.appendChild(option);
+      });
+    }
+
+    // Subscribe to real-time updates on route assignments
+    function subscribeToRouteAssignments() {
+      if (!supa) return;
+
+      supa
+        .channel('route-assignments')
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'active_route_assignments' },
+          (payload) => {
+            console.log('Route assignment changed:', payload);
+            // Reload available routes when assignments change
+            if (!isTracking) {
+              loadAvailableRoutes();
+            }
+          }
+        )
+        .subscribe();
+    }
+
+    // Store selected route ID when route is selected
+    assignedRouteEl.addEventListener('change', () => {
+      const selectedOption = assignedRouteEl.options[assignedRouteEl.selectedIndex];
+      const routeIdStr = selectedOption?.dataset.routeId;
+      selectedRouteId = routeIdStr ? parseInt(routeIdStr, 10) : null; // Convert to number
+      console.log('Route selected. ID:', selectedRouteId, 'Type:', typeof selectedRouteId);
+    });
+
+    function setStatus(text, isBusy = false) {
+      statusEl.textContent = text;
+      startBtn.disabled = isBusy;
+      stopBtn.disabled = !isBusy;
+    }
+
+    function showError(msg) {
+      errEl.textContent = msg || 'Unknown error';
+      errEl.classList.remove('hidden');
+      setTimeout(() => errEl.classList.add('hidden'), 4000);
+    }
+
+    async function triggerEmergencyAlert() {
+      const busNo = (busNoEl.value || '').trim();
+      if (!busNo) {
+        showError('Please enter bus number before triggering emergency alert');
+        return;
+      }
+
+      if (!supa) {
+        showError('Database not configured for emergency alerts');
+        return;
+      }
+
+      try {
+        // Get current location
+        if (!latest && 'geolocation' in navigator) {
+          const position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 10000
+            });
+          });
+          latest = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+        }
+
+        // Call the emergency function
+        const { data, error } = await supa.rpc('create_emergency_incident', {
+          p_incident_type: 'panic_button',
+          p_reported_by_type: 'driver',
+          p_reported_by_id: busNo, // Using bus number as driver ID for simplicity
+          p_bus_no: busNo,
+          p_location_lat: latest?.lat || null,
+          p_location_lng: latest?.lng || null,
+          p_description: `Emergency panic button triggered by driver of bus ${busNo}`,
+          p_severity: 'high'
+        });
+
+        if (error) {
+          console.error('Emergency alert error:', error);
+          showError(`Emergency alert failed: ${error.message}`);
+        } else {
+          // Visual feedback
+          sosBtn.classList.remove('animate-pulse');
+          sosBtn.classList.add('bg-green-600');
+          sosBtn.textContent = '✓ Alert Sent';
+          statusEl.textContent = 'EMERGENCY ALERT SENT - Control room notified';
+
+          // Reset button after 5 seconds
+          setTimeout(() => {
+            sosBtn.classList.add('animate-pulse');
+            sosBtn.classList.remove('bg-green-600');
+            sosBtn.textContent = '🚨 SOS PANIC';
+            if (isTracking) {
+              statusEl.textContent = `Tracking... Last update: ${new Date().toLocaleTimeString()}`;
+            } else {
+              statusEl.textContent = 'Idle';
+            }
+          }, 5000);
+
+          console.log('Emergency alert sent successfully:', data);
+        }
+      } catch (e) {
+        console.error('Emergency alert exception:', e);
+        showError(`Emergency alert failed: ${e.message}`);
+      }
+    }
+
+    async function upsertPosition(busNo, lat, lng, speed = null, heading = null) {
+      if (!supa) { showError('Supabase not configured'); return; }
+      try {
+        const payload = { bus_no: busNo, lat, lng, speed, heading, updated_at: new Date().toISOString() };
+        const promise = supa.from('bus_positions').upsert(payload, { onConflict: 'bus_no' });
+        pendingUpsert = promise;
+        const { error } = await promise;
+        if (pendingUpsert === promise) { pendingUpsert = null; }
+        if (error) {
+          console.error('upsert error', error);
+          showError(`Database error: ${error.message}`);
+        } else {
+          console.log(`Position updated for bus ${busNo}: ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+
+          // Update last_position_update timestamp for inactivity tracking
+          if (currentAssignmentId) {
+            try {
+              await supa
+                .from('active_route_assignments')
+                .update({ last_position_update: new Date().toISOString() })
+                .eq('id', currentAssignmentId)
+                .eq('status', 'active');
+            } catch (updateErr) {
+              console.warn('Failed to update last_position_update:', updateErr);
+            }
+          }
+        }
+      } catch (e) {
+        console.error('upsert exception', e);
+        showError(`Network/Database error: ${e.message}`);
+      }
+    }
+
+    // Update time status indicator
+    function updateTimeStatus() {
+      const now = new Date();
+      const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+      const currentHour = istTime.getUTCHours(); // Use UTC hours since we already added IST offset
+
+      const timeStatusEl = document.getElementById('time-status');
+      if (timeStatusEl) {
+        const isWithinAllowedTime = (currentHour >= 5 && currentHour < 19);
+
+        if (isWithinAllowedTime) {
+          timeStatusEl.textContent = `🕐 Location sharing allowed: 5:00 AM - 7:00 PM IST`;
+          timeStatusEl.className = 'mt-2 text-xs text-green-600';
+        } else {
+          timeStatusEl.textContent = `It was not the time to acces the location`;
+          timeStatusEl.className = 'mt-2 text-xs text-red-600 font-bold';
+        }
+      }
+    }
+
+    // Update time status every minute
+    setInterval(updateTimeStatus, 60000); // Update every minute
+
+    async function startTracking() {
+      const busNo = (busNoEl.value || '').trim();
+      if (!busNo) { showError('Enter bus number'); return; }
+      if (!('geolocation' in navigator)) { showError('Geolocation not supported'); return; }
+
+      // Check if route is selected
+      const selectedRoute = assignedRouteEl.value;
+      if (!selectedRoute || !selectedRouteId) {
+        showError('Please select a route before starting tracking');
+        return;
+      }
+
+      // Check time restrictions (5 AM - 7 PM IST)
+      const now = new Date();
+      const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000)); // Convert to IST
+      const currentHour = istTime.getUTCHours(); // Use UTC hours since we already added IST offset
+
+      // Strict time checking: 5:00 AM to 7:00 PM (19:00)
+      const isWithinAllowedTime = (currentHour >= 5 && currentHour < 19);
+
+      if (!isWithinAllowedTime) {
+        showError('Location tracking is only allowed between 5:00 AM and 7:00 PM IST');
+        if (errEl) {
+          errEl.className = 'text-sm text-red-600 font-bold';
+          errEl.classList.remove('hidden');
+        }
+        return;
+      }
+
+      // Create active assignment in database
+      try {
+        // Try to get authenticated user, but don't require it
+        const { data: { user } } = await supa.auth.getUser();
+        const driverId = user?.id || busNo; // Use bus number as fallback driver ID if not authenticated
+
+        // Get route details
+        console.log('Looking for route with ID:', selectedRouteId);
+        console.log('Available routes:', assignedRoutes);
+
+        const selectedRouteData = assignedRoutes.find(r => r.id == selectedRouteId); // Use == for type coercion
+        if (!selectedRouteData) {
+          console.error('Route not found. Selected ID:', selectedRouteId, 'Available routes:', assignedRoutes);
+          showError('Selected route not found. Please refresh the page and try again.');
+          return;
+        }
+
+        console.log('Selected route data:', selectedRouteData);
+
+        // Insert active assignment
+        const { data: assignment, error: assignError } = await supa
+          .from('active_route_assignments')
+          .insert({
+            route_id: selectedRouteId,
+            route_number: selectedRouteData.route_number,
+            route_name: selectedRouteData.route_name,
+            driver_id: driverId,
+            status: 'active'
+          })
+          .select()
+          .single();
+
+        if (assignError) {
+          if (assignError.code === '23505') { // Unique constraint violation
+            showError('This route is already being tracked by another driver. Please refresh and select a different route.');
+            await loadAvailableRoutes();
+          } else {
+            console.error('Assignment error:', assignError);
+            showError(`Failed to start tracking: ${assignError.message}`);
+          }
+          return;
+        }
+
+        currentAssignmentId = assignment.id;
+        console.log('Active assignment created:', assignment);
+
+        // Disable route dropdown while tracking
+        assignedRouteEl.disabled = true;
+      } catch (e) {
+        console.error('Error creating assignment:', e);
+        showError(`Failed to start tracking: ${e.message}`);
+        return;
+      }
+
+      const intervalMs = parseInt(intervalEl.value, 10) || 10000;
+      isTracking = true;
+      latest = null;
+
+      setStatus('Getting GPS permission and starting location tracking...', true);
+
+      // WatchPosition for live updates
+      try {
+        watchId = navigator.geolocation.watchPosition(pos => {
+          const { latitude, longitude, speed, heading } = pos.coords;
+          latest = { lat: latitude, lng: longitude, speed: speed || 0, heading: heading || 0 };
+          if (lastEl) lastEl.textContent = `Latest: ${latitude.toFixed(5)}, ${longitude.toFixed(5)} @ ${new Date().toLocaleTimeString()}`;
+        }, err => {
+          console.error('GPS watch error:', err);
+          let errorMsg = 'Unknown GPS error';
+          switch (err.code) {
+            case err.PERMISSION_DENIED: errorMsg = 'Location permission denied'; break;
+            case err.POSITION_UNAVAILABLE: errorMsg = 'Location information unavailable'; break;
+            case err.TIMEOUT: errorMsg = 'Location request timed out'; break;
+            default: errorMsg = err.message || errorMsg;
+          }
+          showError(`GPS Error: ${errorMsg}`);
+        }, {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 15000
+        });
+      } catch (e) {
+        console.warn('watchPosition not available', e);
+      }
+
+      // Interval sender (throttled)
+      timerId = setInterval(() => {
+        if (!isTracking || !latest) return;
+
+        // Check if we're still within allowed time window
+        const now = new Date();
+        const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+        const currentHour = istTime.getUTCHours(); // Use UTC hours since we already added IST offset
+
+        if (currentHour >= 19 || currentHour < 5) {
+          stopTracking();
+          showError('⏰ Tracking automatically stopped. Time restriction: 5 AM - 7 PM IST');
+          showError(`⏰ Current time: ${istTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} - Tracking will resume at 5:00 AM`);
+          return;
+        }
+
+        upsertPosition(busNo, latest.lat, latest.lng, latest.speed ?? null, latest.heading ?? null)
+          .then(() => {
+            if (isTracking) {
+              setStatus(`Tracking... Last update: ${new Date().toLocaleTimeString()}`, true);
+            }
+          })
+          .catch(() => { }); // Error already handled in upsertPosition
+      }, intervalMs);
+    }
+
+    async function stopTracking() {
+      // Show confirmation dialog
+      if (isTracking && !confirm('Are you sure you want to stop tracking? You can select a different route after stopping.')) {
+        return;
+      }
+
+      isTracking = false;
+      if (watchId !== null) {
+        try { navigator.geolocation.clearWatch(watchId); } catch (_) { }
+        watchId = null;
+      }
+      if (timerId) { clearInterval(timerId); timerId = null; }
+      if (pendingUpsert) {
+        try { await pendingUpsert; } catch (_) { }
+        pendingUpsert = null;
+      }
+      latest = null;
+
+      const busNo = (busNoEl.value || '').trim();
+      if (busNo && supa) {
+        try {
+          await supa.from('bus_positions').delete().eq('bus_no', busNo);
+        } catch (e) {
+          console.error('delete error', e);
+        }
+      }
+
+      // Update active assignment to stopped
+      if (currentAssignmentId && supa) {
+        try {
+          await supa
+            .from('active_route_assignments')
+            .update({
+              status: 'stopped',
+              stopped_at: new Date().toISOString()
+            })
+            .eq('id', currentAssignmentId);
+
+          console.log('Assignment marked as stopped:', currentAssignmentId);
+          currentAssignmentId = null;
+        } catch (e) {
+          console.error('Error updating assignment:', e);
+        }
+      }
+
+      // Re-enable route selection
+      assignedRouteEl.disabled = false;
+      selectedRouteId = null;
+
+      setStatus('Idle - You can now select a different route');
+      lastEl.textContent = '';
+
+      // Reload available routes
+      await loadAvailableRoutes();
+    }
+
+    startBtn.addEventListener('click', startTracking);
+    stopBtn.addEventListener('click', stopTracking);
+    sosBtn.addEventListener('click', triggerEmergencyAlert);
+    window.addEventListener('beforeunload', stopTracking);
+
+    // Initialize the page
+    loadAvailableRoutes();
+    subscribeToRouteAssignments();
+    updateTimeStatus(); // Initial time status check
+
+    // Test database connection on load
+    if (supa) {
+      setStatus('Database connected - Ready');
+    } else {
+      setStatus('Database not configured - Check console');
+    }
+  </script>
+</body>
+
+</html>
